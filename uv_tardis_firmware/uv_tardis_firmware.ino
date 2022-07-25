@@ -1,15 +1,16 @@
 #include "GyverTM1637.h"
-#define output_pin 2
+#define output_pin 8
 #define rt_clk_pin 3
 #define rt_dt_pin 4
 #define rt_sw_pin 5
 #define disp_clk_pin 6
 #define disp_dio_pin 7
-#define active_pin 8
+#define interrupt_pin 2
 
 int rotation;
 int value;
 bool skip = false;
+bool active = false;
 
 int seconds = 0;
 int new_seconds = 0;
@@ -22,28 +23,28 @@ void setup() {
   pinMode (rt_clk_pin,INPUT);
   pinMode (rt_dt_pin,INPUT);
   pinMode (rt_sw_pin,INPUT);
-  pinMode (active_pin,INPUT);
+  pinMode (interrupt_pin,INPUT);
   rotation = digitalRead(rt_clk_pin);
 
   disp.clear();
   disp.brightness(7);  // яркость, 0 - 7 (минимум - максимум)
   displayTime(seconds);
+
+  attachInterrupt(digitalPinToInterrupt(interrupt_pin), switch_state, CHANGE);
 }
 
 void loop() {
 
-  bool active = !digitalRead(active_pin); //Closing cirquit will ground the active_pin
-
-  if (active && seconds > 0){
-    digitalWrite(output_pin, 1);
-    new_seconds--;
+  if (active){
     delay(1000);
-  }
-  else{
-    digitalWrite(output_pin, 0);
-  }
-  
-  if (!active){    
+    if(active) { //Check for the case interrupt has been triggered
+      new_seconds--;
+      if(new_seconds == 0){
+        deactivate();
+      }
+    } 
+  }  
+  else {    
     value = digitalRead(rt_clk_pin);
      if (value != rotation){ // we use the DT pin to find out which way we turning.
 
@@ -71,9 +72,6 @@ void loop() {
     seconds = new_seconds;
     displayTime(seconds);
   }
-
-  
-   
 }
 
 int secondsStep(int value){
@@ -96,4 +94,18 @@ void displayTime(int value){
   disp.clear();
   disp.display(digit0, digit1, digit2, digit3);
   disp.point(true);
+}
+
+void activate(){
+  active = true;
+  digitalWrite(output_pin, 1);
+}
+void deactivate(){
+  active = false;
+  digitalWrite(output_pin, 0);
+}
+
+void switch_state(){
+  if(digitalRead(interrupt_pin) && seconds > 0) activate();
+  else deactivate();
 }
