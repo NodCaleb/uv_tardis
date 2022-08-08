@@ -15,6 +15,9 @@ bool active = false;
 int seconds = 0;
 int new_seconds = 0;
 
+unsigned long lastDebounceTime = 0;  // the last time the output pin was toggled
+unsigned long debounceDelay = 300;    // the debounce time; increase if the output flickers
+
 GyverTM1637 disp(disp_clk_pin, disp_dio_pin);
 
 void setup() {
@@ -30,7 +33,7 @@ void setup() {
   disp.brightness(7);  // яркость, 0 - 7 (минимум - максимум)
   displayTime(seconds);
 
-  attachInterrupt(digitalPinToInterrupt(interrupt_pin), switch_state, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(interrupt_pin), process_interrupt_debounced, HIGH);
 }
 
 void loop() {
@@ -106,6 +109,13 @@ void deactivate(){
 }
 
 void switch_state(){
-  if(digitalRead(interrupt_pin) && seconds > 0) activate();
-  else deactivate();
+  if(!active && seconds > 0) activate();
+  else if (active) deactivate();
+}
+
+void process_interrupt_debounced(){
+  if(millis() - lastDebounceTime > debounceDelay){
+    switch_state();
+    lastDebounceTime = millis();    
+  }  
 }
